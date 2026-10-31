@@ -1,0 +1,2 @@
+# Copy to terraform.tfvars and set your lab project ID.
+project_id = ""

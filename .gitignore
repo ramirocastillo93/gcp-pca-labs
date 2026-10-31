@@ -1,0 +1,41 @@
+# Source curriculum PDF stays local.
+*.pdf
+
+# Terraform working data and local inputs.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.plan
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+crash.log
+crash.*.log
+
+# Credentials, environment files, and local config.
+.env
+.env.*
+!.env.example
+*credential*.json
+*service-account*.json
+*service_account*.json
+*keyfile*.json
+*.pem
+*.p12
+*.pfx
+.config/gcloud/
+
+# Local tooling artifacts.
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+__pycache__/
+.pytest_cache/

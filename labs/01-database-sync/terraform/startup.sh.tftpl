@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y ca-certificates curl
+
+# Debian 12 ships an older PostgreSQL major version. Install 18 from PGDG.
+install -d -m 0755 /usr/share/postgresql-common/pgdg
+curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+  -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+cat >/etc/apt/sources.list.d/pgdg.sources <<'SOURCES'
+Types: deb
+URIs: https://apt.postgresql.org/pub/repos/apt
+Suites: bookworm-pgdg
+Components: main
+Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+SOURCES
+
+apt-get update
+apt-get install -y postgresql-18 postgresql-client-18 socat
+
+PG_CONF=/etc/postgresql/18/main/postgresql.conf
+PG_HBA=/etc/postgresql/18/main/pg_hba.conf
+
+sed -i "s/^#\?listen_addresses.*/listen_addresses = '*'/" "$PG_CONF"
+sed -i "s/^#\?wal_level.*/wal_level = logical/" "$PG_CONF"
+for rule in \
+  "host all all 10.50.0.0/24 scram-sha-256" \
+  "host all all 10.240.0.0/16 scram-sha-256" \
+  "host all all 10.60.0.0/29 scram-sha-256"; do
+  grep -qxF "$rule" "$PG_HBA" || echo "$rule" >> "$PG_HBA"
+done
+systemctl restart postgresql
+
+# Datastream's VPC peering cannot transit the separate Cloud SQL peering.
+# This TCP relay exposes only the private Cloud SQL endpoint to the lab VPC.
+cat >/etc/systemd/system/pca-cloudsql-relay.service <<'UNIT'
+[Unit]
+Description=PCA lab TCP relay to private Cloud SQL
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/socat TCP-LISTEN:5433,bind=10.50.0.10,reuseaddr,fork TCP:${cloud_sql_ip}:5432
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now pca-cloudsql-relay.service
